@@ -59,7 +59,7 @@ int main(int argc, char const *argv[]) {
   int result;
   pthread_t tid1, tid2, tid3; //Thread ID
   pthread_attr_t attr;
-  char c[100];
+  //char c[100];
 	FILE* readFile;
 	char file_name[100];
 	//int sig;
@@ -88,6 +88,49 @@ int main(int argc, char const *argv[]) {
 
   //sig = 0;
 
+
+    
+  // Initialization
+  initializeData(&params);
+  pthread_attr_init(&attr);
+  
+
+  // Create pipe
+  result = pipe (params.pipeFile);
+   if (result < 0){ perror("pipe error");exit(1); } else {printf("pipe created");}
+
+  // Create Threads
+  if(pthread_create(&tid1, &attr, ThreadA, (void*)(&params))!=0)
+  {
+	  perror("Error creating threads A: ");
+      exit(-1);
+  }
+
+  printf("Thread A Created");
+
+ if(pthread_create(&tid2, &attr, ThreadB, (void*)(&params))!=0)
+  {
+	  perror("Error creating threads B: ");
+      exit(-1);
+  }
+
+  printf("Thread b Created");
+
+  if(pthread_create(&tid3, &attr, ThreadC, (void*)(&params))!=0)
+  {
+	  perror("Error creating threads C: ");
+      exit(-1);
+  }
+
+  printf("Thread c Created");
+  //TODO: add your code
+
+  sem_wait(&params.sem_A_to_B);
+  sem_wait(&params.sem_B_to_C);
+  sem_wait(&params.sem_C_to_A);
+
+	int i = 0;
+
 	while (fgets(params.message, sizeof(params.message), readFile) != NULL) {
 		//if the program read to the end of header
 		//then, read the data region and print it to the console (sig==1)
@@ -102,42 +145,13 @@ int main(int argc, char const *argv[]) {
 		//Yes. The end of header
 			sig = 1;
 		}
-    */			
+    */	
 
-    fputs(params.message, stdout);
+
+    	fputs(params.message, stdout);
+	printf("%d", i);
+	i++;
 	}
-
-
-    
-  // Initialization
-  initializeData(&params);
-  pthread_attr_init(&attr);
-  
-
-  // Create pipe
-  result = pipe (params.pipeFile);
-   if (result < 0){ perror("pipe error");exit(1); }
-
-  // Create Threads
-  if(pthread_create(&tid1, &attr, ThreadA, (void*)(&params))!=0)
-  {
-	  perror("Error creating threads A: ");
-      exit(-1);
-  }else{printf("Thread A Created");}
-
- if(pthread_create(&tid2, &attr, ThreadB, (void*)(&params))!=0)
-  {
-	  perror("Error creating threads B: ");
-      exit(-1);
-  }else{printf("Thread b Created");}
-  if(pthread_create(&tid3, &attr, ThreadC, (void*)(&params))!=0)
-  {
-	  perror("Error creating threads C: ");
-      exit(-1);
-  }else{printf("Thread c Created");}
-  //TODO: add your code
-
-
   
 
   //sem_post(&(params.sem_A_to_B)); //unlock semaphore_one
@@ -194,14 +208,15 @@ void *ThreadA(void *params) {
   fputs(item, stdout);
   // THIS CODE SENDS CHAR BY CHAR
 
-  close(A_thread_params->pipeFile[0]); //close all reading to pipe for writing
+  //close(A_thread_params->pipeFile[0]); //close all reading to pipe for writing
   while(item[j]!='\0')
   {
+ 	printf("%c", item[j]);
     result = write(A_thread_params->pipeFile[1], &item[j], 1);
     if (result!=1){ 
-      perror ("write"); 
+      	perror ("write"); 
 	    exit (2);
-	  }
+	}
 
 	printf("%c", item[j]);
 	j++;
@@ -210,7 +225,7 @@ void *ThreadA(void *params) {
   /* add the '\0' in the end of the pipe */
   result = write(A_thread_params->pipeFile[1], &item[j], 1);
   if (result!=1){ 
-    perror ("write"); 
+    	perror ("write"); 
 	  exit (3);
     }
 	
@@ -228,7 +243,7 @@ void *ThreadB(void *params) {
   //int i,upper=atoi(B_thread_params->message);
   printf("ThreadB\n");
   printf ("In writing thread\n");
-  close(B_thread_params->pipeFile[1]); //close all writing to pipe for reading.
+  //close(B_thread_params->pipeFile[1]); //close all writing to pipe for reading.
 
   //Read from pipe and send to C
   while(1){
@@ -237,7 +252,7 @@ void *ThreadB(void *params) {
       int j = 0;
 
 
-      result = read (B_thread_params->pipeFile[0],&ch,1);
+      result = read(B_thread_params->pipeFile[0],&ch,1);
       if (result != 1) {
         perror("read");
         exit(4);
@@ -246,14 +261,14 @@ void *ThreadB(void *params) {
       // put into chararray and send to c?????
       
       if(ch !='\0')	{
-      printf ("Reader: %c\n", ch);
-      buffer[j] = ch;
-      j++;
+      	printf ("Reader: %c\n", ch);
+      	buffer[j] = ch;
+      	j++;
       }
       else {
-      printf("reading pipe has completed\n");
-      buffer[j]= '\n';
-      exit (5);
+      	printf("reading pipe has completed\n");
+      	buffer[j]= '\n';
+      	exit (5);
       }
   }
   // put into chararray and send to c?????
