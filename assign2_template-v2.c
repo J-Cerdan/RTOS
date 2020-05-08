@@ -4,14 +4,14 @@
 // This is a template for the subject of RTOS in University of Technology Sydney(UTS)
 // Please complete the code based on the assignment requirement.
 
+//AUTHORS: Joseph Cerdan (12544312) & Jacob Elali (13372937)
+
 //***********************************************************************************
 /***********************************************************************************/
 
 /*
   To compile prog_1 ensure that gcc is installed and run the following command:
   gcc -Wall -O2 prog_1.c -o prog_1 -lpthread -lrt
-  gcc -Wall -O2 assign2_template-v2.c -o prog_1 -lpthread -lrt
-
 */
 #include  <pthread.h>
 #include  <stdlib.h>
@@ -30,14 +30,12 @@ typedef struct ThreadParams {
   int pipeFile[2];
   sem_t sem_A_to_B, sem_B_to_C, sem_C_to_A;
   char message[255];
+  FILE *readFptr, *writeFptr;
   
 } ThreadParams;
 
 typedef char buffer_item;
 #define BUFFER_SIZE 255
-
-/* global vairable declare */
-buffer_item buffer[BUFFER_SIZE];/* the buffer */
 
 /* --- Prototypes --- */
 
@@ -59,11 +57,8 @@ int main(int argc, char const *argv[]) {
   int result;
   pthread_t tid1, tid2, tid3; //Thread ID
   pthread_attr_t attr;
-  //char c[100];
-	FILE* readFile;
-	char file_name[100];
-	//int sig;
-	//char check[100] = "end_header\n";
+  char file_name[100];
+
 
   ThreadParams params;
  
@@ -74,113 +69,93 @@ int main(int argc, char const *argv[]) {
 		fprintf(stderr, "USAGE:./main.out data.txt\n");
 	}
 
-	strcpy(file_name, argv[1]); //copy a string from the commond line
+	strcpy(file_name, argv[1]); //copy a string from the command line
 
   //File open for reading
-	if ((readFile = fopen(file_name, "r")) == NULL) {
+	if ((params.readFptr = fopen(file_name, "r")) == NULL) {
+		printf("Error! opening file");
+		// Program exits if file pointer returns NULL.
+		exit(1);
+	}
+
+  //File open for writing
+  if ((params.writeFptr = fopen("output.txt", "w")) == NULL) {
 		printf("Error! opening file");
 		// Program exits if file pointer returns NULL.
 		exit(1);
 	}
 
 	// reads text until newline is encountered
-	printf("reading from the file:\n");
-
-  //sig = 0;
-
+	printf("\nReading data file...:\n");
 
     
   // Initialization
   initializeData(&params);
   pthread_attr_init(&attr);
-  
 
   // Create pipe
   result = pipe (params.pipeFile);
-   if (result < 0){ perror("pipe error");exit(1); } else {printf("pipe created");}
+   if (result < 0){ 
+    perror("Error creating pipe\n");
+    exit(1); 
+    } else {
+      printf("Pipe created\n");
+      }
 
   // Create Threads
   if(pthread_create(&tid1, &attr, ThreadA, (void*)(&params))!=0)
   {
-	  perror("Error creating threads A: ");
+	  perror("Error creating thread A \n");
       exit(-1);
   }
-
-  printf("Thread A Created");
+  printf("Thread A Created\n");
 
  if(pthread_create(&tid2, &attr, ThreadB, (void*)(&params))!=0)
   {
-	  perror("Error creating threads B: ");
+	  perror("Error creating thread B \n");
       exit(-1);
   }
-
-  printf("Thread b Created");
-
+  printf("Thread B Created\n");
+ 
   if(pthread_create(&tid3, &attr, ThreadC, (void*)(&params))!=0)
   {
-	  perror("Error creating threads C: ");
+	  perror("Error creating thread C \n");
       exit(-1);
   }
-
-  printf("Thread c Created");
-  //TODO: add your code
-
-  sem_wait(&params.sem_A_to_B);
-  sem_wait(&params.sem_B_to_C);
-  sem_wait(&params.sem_C_to_A);
-
-	int i = 0;
-
-	while (fgets(params.message, sizeof(params.message), readFile) != NULL) {
-		//if the program read to the end of header
-		//then, read the data region and print it to the console (sig==1)
-    /*
-		if (sig == 1)
-			fputs(params.message, stdout);
-
-		//check whether this line is the end of header,
-		//the new line in array c contains "end_header\n"
-		if (!sig && strstr(params.message, check)!=NULL)
-		{
-		//Yes. The end of header
-			sig = 1;
-		}
-    */	
-
-
-    	fputs(params.message, stdout);
-	printf("%d", i);
-	i++;
-	}
-  
-
-  //sem_post(&(params.sem_A_to_B)); //unlock semaphore_one
+  printf("Thread C Created\n");
  
 
   // Wait on threads to finish
   pthread_join(tid1, NULL);
   pthread_join(tid2, NULL);
   pthread_join(tid3, NULL);
-  //TODO: add your code
 
+  
   //CLOSE FILE BEING READ
-  fclose(readFile);
+  fclose(params.readFptr);
+
+  //CLOSE FILE BEING WRITTEN
+  fclose(params.writeFptr);
 
   return 0;
+
 }
 
 void initializeData(ThreadParams *params) {
   // Initialize Sempahores
-  sem_init(&(params->sem_A_to_B), 0, 1);
+  if (sem_init(&(params->sem_A_to_B), 0, 1)){
+    perror("Error initialising semAtoB semaphore. \n");
+  }
   
   //TODO: add your code
 
-  sem_init(&(params->sem_B_to_C), 0, 1);
-  sem_init(&(params->sem_C_to_A), 0, 1);
+  if (sem_init(&(params->sem_B_to_C), 0, 0)){
+    perror("Error initialising semBtoC semaphore. \n");
+  }
+  if (sem_init(&(params->sem_C_to_A), 0, 0)){
+    perror("Error initialising semCtoA semaphore. \n");
+  }
 
-
-  /* Get the default attributes */
-  //pthread_attr_init(&attr);
 
   return;
 }
@@ -188,50 +163,36 @@ void initializeData(ThreadParams *params) {
 void *ThreadA(void *params) {
   //TODO: add your code
   
-  /* note: Since the data_stract is declared as pointer. the A_thread_params->message */
+  /* note: Since the data_stract is declared as pointer. the A_threa],&d_params->message */
   ThreadParams *A_thread_params = (ThreadParams *)(params);
-  sem_wait(&(A_thread_params->sem_A_to_B));
-  //int i,upper=atoi(A_thread_params->message);
-
-  printf("ThreadA\n");
-
-  //Write to pipe
-  int j=0;
-  int result;
-  buffer_item item[BUFFER_SIZE];
-
-  printf ("In writing thread\n");
+  buffer_item line[BUFFER_SIZE];
   
-  /* copy the input string into local variables*/
-  strcpy(item, A_thread_params->message);
-
-  fputs(item, stdout);
-  // THIS CODE SENDS CHAR BY CHAR
-
-  //close(A_thread_params->pipeFile[0]); //close all reading to pipe for writing
-  while(item[j]!='\0')
-  {
- 	printf("%c", item[j]);
-    result = write(A_thread_params->pipeFile[1], &item[j], 1);
+  //Wait for semaphore and line to be read
+  while (!sem_wait(&(A_thread_params->sem_A_to_B)) && fgets(line, BUFFER_SIZE, A_thread_params->readFptr) != NULL) {
+    
+    int result=0;
+  
+    //display 
+    printf("\nData: %s", line);
+    
+    //write into pipe
+    result = write(A_thread_params->pipeFile[1], line, strlen(line));
     if (result!=1){ 
-      	perror ("write"); 
-	    exit (2);
+        perror ("A> Writing data to pipe"); 
+    }
+
+
+    //memset(line, 0, BUFFER_SIZE);
+    sem_post(&(A_thread_params->sem_B_to_C));
+    
 	}
 
-	printf("%c", item[j]);
-	j++;
-  }
-  
-  /* add the '\0' in the end of the pipe */
-  result = write(A_thread_params->pipeFile[1], &item[j], 1);
-  if (result!=1){ 
-    	perror ("write"); 
-	  exit (3);
-    }
-	
-   printf("\nwriting pipe has finished\n"); 
+  //Close writing pipe
+  close(A_thread_params->pipeFile[1]);
 
-  sem_post(&(A_thread_params->sem_B_to_C));
+  exit(1);
+
+  return 0;
 
 }
 
@@ -239,100 +200,53 @@ void *ThreadB(void *params) {
   //TODO: add your code
 
   ThreadParams *B_thread_params = (ThreadParams *)(params);
-  sem_wait(&(B_thread_params->sem_B_to_C));
-  //int i,upper=atoi(B_thread_params->message);
-  printf("ThreadB\n");
-  printf ("In writing thread\n");
-  //close(B_thread_params->pipeFile[1]); //close all writing to pipe for reading.
 
-  //Read from pipe and send to C
-  while(1){
-      char    ch;
-      int     result;
-      int j = 0;
+  while(!sem_wait(&(B_thread_params->sem_B_to_C))){
+    int result=0;
 
+    //Read from pipe
+    result = read(B_thread_params->pipeFile[0], B_thread_params->message, BUFFER_SIZE);
 
-      result = read(B_thread_params->pipeFile[0],&ch,1);
-      if (result != 1) {
-        perror("read");
-        exit(4);
-      }
+    if (result == -1){
+      printf("pipe error");
+    }
+    if (result != 1) {
+      perror("B> Reading from pipe and placing in shared variable");
+    }
 
-      // put into chararray and send to c?????
-      
-      if(ch !='\0')	{
-      	printf ("Reader: %c\n", ch);
-      	buffer[j] = ch;
-      	j++;
-      }
-      else {
-      	printf("reading pipe has completed\n");
-      	buffer[j]= '\n';
-      	exit (5);
-      }
+    sem_post(&(B_thread_params->sem_C_to_A));
+  
   }
-  // put into chararray and send to c?????
 
-  sem_post(&(B_thread_params->sem_C_to_A));
+  //Close writing pipe
+  close(B_thread_params->pipeFile[0]);
+
+  return 0;
 
 }
 
 void *ThreadC(void *params) {
   //TODO: add your code
   ThreadParams *C_thread_params = (ThreadParams *)(params);
-  sem_wait(&(C_thread_params->sem_C_to_A));
-  //int i,upper=atoi(C_thread_params->message);
-  FILE* writeFile;
-  char check[100] = "end_header";
+  int signalend = 0;
+  char check[100] = "end_header\n";
 
-  printf("ThreadC\n");
-
-  //File open for writing
-  if ((writeFile = fopen("output.txt", "w")) == NULL) {
-		printf("Error! opening file");
-		// Program exits if file pointer returns NULL.
-		exit(1);
-	}
-
-  //Analyse and put into output.txt
-
-  int sig = 0;
-  int j = 0;
-
-	while (buffer[j] != '\0') {
-		//if the program read to the end of header
-    int k = 0;
-    buffer_item line[BUFFER_SIZE];
-
-
-    if (buffer[j] != '\n'){
-      line[k] = buffer[j];
-
-      //then, read the data region and print it to the console (sig==1)
-      if (sig == 1){
-        fputs(line, stdout);
-        fprintf(writeFile,"%c",line[k]);
-      }
-
-      /* check whether this line is the end of header,
-      the new line in array c contains "end_header\n"*/
-      if (!sig && strstr(line, check)!=NULL)
-      {
-        //Yes. The end of header
-        sig = 1;
-      }
-    } else if (sig == 1 && buffer[j] == '\n') {
-      fprintf(writeFile, "\n");
+  while(!sem_wait(&(C_thread_params->sem_C_to_A))){
+    
+    //write into output.txt if after end header
+    if(signalend == 1){
+      fprintf(C_thread_params->writeFptr, "%s", C_thread_params->message);
+      printf("C> Writing line to output from shared variable: %s", C_thread_params->message);
+      fflush(C_thread_params->writeFptr);
+    } else if (strcmp(C_thread_params->message, check)==0){ //check end header line
+      signalend = 1;
     }
+    // reset char array to empty
+    memset(C_thread_params->message, 0, BUFFER_SIZE);
+    sem_post(&(C_thread_params->sem_A_to_B));
+    printf("Signal end: %d\n", signalend);
+  }
 
-    j++;
-	}
-
-  
-
-
-  fclose(writeFile);
-
-  sem_post(&(C_thread_params->sem_A_to_B));
+  return 0;
 
 }
