@@ -1,0 +1,2 @@
+6.714286s Average wait time
+12.000000s Average turnaround time
